@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import Layout from "@/components/layout/Layout";
+import { Layout } from "@/components/layout/Layout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminDevices } from "@/components/admin/AdminDevices";
 import { AdminReservations } from "@/components/admin/AdminReservations";
