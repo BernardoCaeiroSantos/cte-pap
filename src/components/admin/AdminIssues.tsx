@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -28,10 +29,11 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Wrench } from "lucide-react";
+import { Wrench, Search, Download, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { IssueStatus, IssuePriority } from "@/lib/supabase-types";
+import { exportToCSV, exportToExcel, formatDateForExport } from "@/lib/exportUtils";
 
 const statusLabels: Record<IssueStatus, string> = {
   reported: "Reportado",
@@ -65,6 +67,9 @@ export function AdminIssues() {
   const [selectedIssue, setSelectedIssue] = useState<any>(null);
   const [newStatus, setNewStatus] = useState<IssueStatus>("reported");
   const [resolution, setResolution] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
 
   const queryClient = useQueryClient();
 
@@ -157,6 +162,77 @@ export function AdminIssues() {
     setResolution(issue.resolution || "");
   };
 
+  // Filter issues
+  const filteredIssues = issues.filter((issue: any) => {
+    const matchesSearch =
+      searchTerm === "" ||
+      issue.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      issue.device?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      issue.reporter?.full_name?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus = statusFilter === "all" || issue.status === statusFilter;
+    const matchesPriority = priorityFilter === "all" || issue.priority === priorityFilter;
+
+    return matchesSearch && matchesStatus && matchesPriority;
+  });
+
+  // Export functions
+  const handleExportCSV = () => {
+    const exportData = filteredIssues.map((i: any) => ({
+      titulo: i.title,
+      equipamento: i.device?.name || "N/A",
+      reportado_por: i.reporter?.full_name || "N/A",
+      prioridade: priorityLabels[i.priority as IssuePriority],
+      estado: statusLabels[i.status as IssueStatus],
+      descricao: i.description || "",
+      resolucao: i.resolution || "",
+      criado_em: formatDateForExport(i.created_at),
+      resolvido_em: formatDateForExport(i.resolved_at),
+    }));
+
+    exportToCSV(exportData, `avarias_${format(new Date(), "yyyy-MM-dd")}`, {
+      titulo: "Título",
+      equipamento: "Equipamento",
+      reportado_por: "Reportado Por",
+      prioridade: "Prioridade",
+      estado: "Estado",
+      descricao: "Descrição",
+      resolucao: "Resolução",
+      criado_em: "Criado Em",
+      resolvido_em: "Resolvido Em",
+    });
+
+    toast.success("Relatório CSV exportado!");
+  };
+
+  const handleExportExcel = () => {
+    const exportData = filteredIssues.map((i: any) => ({
+      titulo: i.title,
+      equipamento: i.device?.name || "N/A",
+      reportado_por: i.reporter?.full_name || "N/A",
+      prioridade: priorityLabels[i.priority as IssuePriority],
+      estado: statusLabels[i.status as IssueStatus],
+      descricao: i.description || "",
+      resolucao: i.resolution || "",
+      criado_em: formatDateForExport(i.created_at),
+      resolvido_em: formatDateForExport(i.resolved_at),
+    }));
+
+    exportToExcel(exportData, `avarias_${format(new Date(), "yyyy-MM-dd")}`, {
+      titulo: "Título",
+      equipamento: "Equipamento",
+      reportado_por: "Reportado Por",
+      prioridade: "Prioridade",
+      estado: "Estado",
+      descricao: "Descrição",
+      resolucao: "Resolução",
+      criado_em: "Criado Em",
+      resolvido_em: "Resolvido Em",
+    });
+
+    toast.success("Relatório Excel exportado!");
+  };
+
   if (isLoading) {
     return <div className="text-muted-foreground">A carregar avarias...</div>;
   }
@@ -165,9 +241,60 @@ export function AdminIssues() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Gestão de Avarias</CardTitle>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle>Gestão de Avarias</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleExportCSV}>
+                <Download className="h-4 w-4 mr-1" />
+                CSV
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportExcel}>
+                <FileSpreadsheet className="h-4 w-4 mr-1" />
+                Excel
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar por título, equipamento ou utilizador..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os estados</SelectItem>
+                {Object.entries(statusLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Prioridade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as prioridades</SelectItem>
+                {Object.entries(priorityLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -182,7 +309,7 @@ export function AdminIssues() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {issues.map((issue: any) => (
+                {filteredIssues.map((issue: any) => (
                   <TableRow key={issue.id}>
                     <TableCell className="font-medium max-w-[200px] truncate">
                       {issue.title}
@@ -216,7 +343,7 @@ export function AdminIssues() {
                     </TableCell>
                   </TableRow>
                 ))}
-                {issues.length === 0 && (
+                {filteredIssues.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center text-muted-foreground">
                       Nenhuma avaria encontrada
