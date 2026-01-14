@@ -7,7 +7,7 @@ import { Monitor, Menu, LogOut, User, Settings } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useState } from 'react';
 const navItems = [{
-  label: 'Dashboard',
+  label: 'Início',
   href: '/'
 }, {
   label: 'Equipamentos',

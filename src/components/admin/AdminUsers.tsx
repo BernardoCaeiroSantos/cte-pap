@@ -93,15 +93,26 @@ export function AdminUsers() {
       })) as UserWithRole[];
     },
   });
+  const { data: currentUser } = useQuery({
+    queryKey: ["current-user"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    },
+  });
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({
       roleId,
       userId,
+      userName,
+      oldRole,
       newRole,
     }: {
       roleId: string;
       userId: string;
+      userName: string;
+      oldRole: UserRole;
       newRole: UserRole;
     }) => {
       if (roleId) {
@@ -120,6 +131,19 @@ export function AdminUsers() {
 
         if (error) throw error;
       }
+
+      // Log the action to audit_logs
+      if (currentUser) {
+        await supabase.from("audit_logs").insert({
+          user_id: currentUser.id,
+          action: "role_updated",
+          entity_type: "user_role",
+          entity_id: userId,
+          old_value: { role: oldRole },
+          new_value: { role: newRole },
+          description: `Role de ${userName} alterado de ${oldRole} para ${newRole}`,
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-users"] });
@@ -135,6 +159,8 @@ export function AdminUsers() {
     updateRoleMutation.mutate({
       roleId: selectedUser.role_id,
       userId: selectedUser.user_id,
+      userName: selectedUser.full_name,
+      oldRole: selectedUser.role,
       newRole,
     });
   };
