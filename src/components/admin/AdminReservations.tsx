@@ -52,17 +52,31 @@ export function AdminReservations() {
   const { data: reservations = [], isLoading } = useQuery({
     queryKey: ["admin-reservations"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch reservations
+      const { data: reservationsData, error: reservationsError } = await supabase
         .from("reservations")
-        .select(`
-          *,
-          device:devices(name),
-          profile:profiles!reservations_user_id_fkey(full_name)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data;
+      if (reservationsError) throw reservationsError;
+
+      // Fetch related devices and profiles
+      const deviceIds = [...new Set(reservationsData.map(r => r.device_id))];
+      const userIds = [...new Set(reservationsData.map(r => r.user_id))];
+
+      const [devicesResult, profilesResult] = await Promise.all([
+        supabase.from("devices").select("id, name").in("id", deviceIds),
+        supabase.from("profiles").select("user_id, full_name").in("user_id", userIds),
+      ]);
+
+      const devicesMap = new Map(devicesResult.data?.map(d => [d.id, d]) || []);
+      const profilesMap = new Map(profilesResult.data?.map(p => [p.user_id, p]) || []);
+
+      return reservationsData.map(r => ({
+        ...r,
+        device: devicesMap.get(r.device_id),
+        profile: profilesMap.get(r.user_id),
+      }));
     },
   });
 
