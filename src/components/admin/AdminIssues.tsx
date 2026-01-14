@@ -76,17 +76,31 @@ export function AdminIssues() {
   const { data: issues = [], isLoading } = useQuery({
     queryKey: ["admin-issues"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch issues
+      const { data: issuesData, error: issuesError } = await supabase
         .from("issues")
-        .select(`
-          *,
-          device:devices(name),
-          reporter:profiles!issues_reported_by_fkey(full_name)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data;
+      if (issuesError) throw issuesError;
+
+      // Fetch related devices and profiles
+      const deviceIds = [...new Set(issuesData.map(i => i.device_id))];
+      const reporterIds = [...new Set(issuesData.map(i => i.reported_by))];
+
+      const [devicesResult, profilesResult] = await Promise.all([
+        supabase.from("devices").select("id, name").in("id", deviceIds),
+        supabase.from("profiles").select("user_id, full_name").in("user_id", reporterIds),
+      ]);
+
+      const devicesMap = new Map(devicesResult.data?.map(d => [d.id, d]) || []);
+      const profilesMap = new Map(profilesResult.data?.map(p => [p.user_id, p]) || []);
+
+      return issuesData.map(i => ({
+        ...i,
+        device: devicesMap.get(i.device_id),
+        reporter: profilesMap.get(i.reported_by),
+      }));
     },
   });
 

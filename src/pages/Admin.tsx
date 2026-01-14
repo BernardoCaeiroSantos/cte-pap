@@ -6,7 +6,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminDevices } from "@/components/admin/AdminDevices";
 import { AdminReservations } from "@/components/admin/AdminReservations";
 import { AdminIssues } from "@/components/admin/AdminIssues";
-import { Monitor, Calendar, AlertTriangle, Shield } from "lucide-react";
+import { AdminUsers } from "@/components/admin/AdminUsers";
+import { Monitor, Calendar, AlertTriangle, Shield, Users } from "lucide-react";
 
 const Admin = () => {
   const { isStaff, isLoading } = useAuth();
@@ -46,7 +47,7 @@ const Admin = () => {
         </div>
 
         <Tabs defaultValue="devices" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+          <TabsList className="grid w-full grid-cols-4 lg:w-[520px]">
             <TabsTrigger value="devices" className="flex items-center gap-2">
               <Monitor className="h-4 w-4" />
               <span className="hidden sm:inline">Dispositivos</span>
@@ -58,6 +59,10 @@ const Admin = () => {
             <TabsTrigger value="issues" className="flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" />
               <span className="hidden sm:inline">Avarias</span>
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Utilizadores</span>
             </TabsTrigger>
           </TabsList>
 
@@ -71,6 +76,10 @@ const Admin = () => {
 
           <TabsContent value="issues">
             <AdminIssues />
+          </TabsContent>
+
+          <TabsContent value="users">
+            <AdminUsers />
           </TabsContent>
         </Tabs>
       </div>
