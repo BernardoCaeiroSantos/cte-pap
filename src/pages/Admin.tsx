@@ -7,7 +7,9 @@ import { AdminDevices } from "@/components/admin/AdminDevices";
 import { AdminReservations } from "@/components/admin/AdminReservations";
 import { AdminIssues } from "@/components/admin/AdminIssues";
 import { AdminUsers } from "@/components/admin/AdminUsers";
-import { Monitor, Calendar, AlertTriangle, Shield, Users } from "lucide-react";
+import { AdminAuditLogs } from "@/components/admin/AdminAuditLogs";
+import { AdminStatistics } from "@/components/admin/AdminStatistics";
+import { Monitor, Calendar, AlertTriangle, Shield, Users, History, BarChart3 } from "lucide-react";
 
 const Admin = () => {
   const { isStaff, isLoading } = useAuth();
@@ -46,8 +48,12 @@ const Admin = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="devices" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-4 lg:w-[520px]">
+        <Tabs defaultValue="statistics" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 lg:w-[780px]">
+            <TabsTrigger value="statistics" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Estatísticas</span>
+            </TabsTrigger>
             <TabsTrigger value="devices" className="flex items-center gap-2">
               <Monitor className="h-4 w-4" />
               <span className="hidden sm:inline">Dispositivos</span>
@@ -64,7 +70,15 @@ const Admin = () => {
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Utilizadores</span>
             </TabsTrigger>
+            <TabsTrigger value="audit" className="flex items-center gap-2">
+              <History className="h-4 w-4" />
+              <span className="hidden sm:inline">Histórico</span>
+            </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="statistics">
+            <AdminStatistics />
+          </TabsContent>
 
           <TabsContent value="devices">
             <AdminDevices />
@@ -80,6 +94,10 @@ const Admin = () => {
 
           <TabsContent value="users">
             <AdminUsers />
+          </TabsContent>
+
+          <TabsContent value="audit">
+            <AdminAuditLogs />
           </TabsContent>
         </Tabs>
       </div>

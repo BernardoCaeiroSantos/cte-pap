@@ -79,6 +79,13 @@ export function AdminReservations() {
       }));
     },
   });
+  const { data: currentUser } = useQuery({
+    queryKey: ["current-user"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user;
+    },
+  });
 
   const updateStatusMutation = useMutation({
     mutationFn: async ({
@@ -102,6 +109,18 @@ export function AdminReservations() {
         .eq("id", id);
 
       if (error) throw error;
+
+      // Log the action to audit_logs
+      if (currentUser) {
+        await supabase.from("audit_logs").insert({
+          user_id: currentUser.id,
+          action: status === "approved" ? "reservation_approved" : "reservation_rejected",
+          entity_type: "reservation",
+          entity_id: id,
+          new_value: { device_name: deviceName, status },
+          description: `Reserva ${status === "approved" ? "aprovada" : "rejeitada"}: ${deviceName}`,
+        });
+      }
 
       // Send notification email
       const notificationType =
