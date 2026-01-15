@@ -114,7 +114,7 @@ export function AdminDevices() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
+    mutationFn: async ({ id, data, previousStatus }: { id: string; data: typeof formData; previousStatus?: DeviceStatus }) => {
       const { error } = await supabase
         .from("devices")
         .update({
@@ -124,6 +124,38 @@ export function AdminDevices() {
         })
         .eq("id", id);
       if (error) throw error;
+
+      // If device became unavailable, notify users with active reservations
+      if (data.status === "unavailable" && previousStatus !== "unavailable") {
+        // Fetch active reservations for this device
+        const { data: reservations } = await supabase
+          .from("reservations")
+          .select("user_id")
+          .eq("device_id", id)
+          .in("status", ["approved", "pending"]);
+
+        if (reservations && reservations.length > 0) {
+          const uniqueUserIds = [...new Set(reservations.map(r => r.user_id))];
+          
+          // Send notification to each user
+          for (const userId of uniqueUserIds) {
+            try {
+              await supabase.functions.invoke("send-notification", {
+                body: {
+                  type: "device_unavailable",
+                  userId,
+                  details: {
+                    deviceName: data.name,
+                    reason: "O equipamento foi marcado como indisponível.",
+                  },
+                },
+              });
+            } catch (emailError) {
+              console.error("Failed to send notification:", emailError);
+            }
+          }
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-devices"] });
@@ -174,7 +206,7 @@ export function AdminDevices() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (editingDevice) {
-      updateMutation.mutate({ id: editingDevice.id, data: formData });
+      updateMutation.mutate({ id: editingDevice.id, data: formData, previousStatus: editingDevice.status });
     } else {
       createMutation.mutate(formData);
     }
