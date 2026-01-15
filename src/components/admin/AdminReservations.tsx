@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Check, X, Search, Download, FileSpreadsheet } from "lucide-react";
+import { Check, X, Search, Download, FileSpreadsheet, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { pt } from "date-fns/locale";
 import { ReservationStatus } from "@/lib/supabase-types";
@@ -112,19 +112,30 @@ export function AdminReservations() {
 
       // Log the action to audit_logs
       if (currentUser) {
+        const actionMap: Record<string, string> = {
+          approved: "reservation_approved",
+          rejected: "reservation_rejected",
+          cancelled: "reservation_cancelled",
+        };
+        
         await supabase.from("audit_logs").insert({
           user_id: currentUser.id,
-          action: status === "approved" ? "reservation_approved" : "reservation_rejected",
+          action: actionMap[status] || "reservation_updated",
           entity_type: "reservation",
           entity_id: id,
           new_value: { device_name: deviceName, status },
-          description: `Reserva ${status === "approved" ? "aprovada" : "rejeitada"}: ${deviceName}`,
+          description: `Reserva ${status}: ${deviceName}`,
         });
       }
 
       // Send notification email
-      const notificationType =
-        status === "approved" ? "reservation_approved" : "reservation_rejected";
+      const notificationTypeMap: Record<string, string> = {
+        approved: "reservation_approved",
+        rejected: "reservation_rejected",
+        cancelled: "reservation_cancelled",
+      };
+      
+      const notificationType = notificationTypeMap[status];
 
       try {
         await supabase.functions.invoke("send-notification", {
@@ -164,6 +175,17 @@ export function AdminReservations() {
     updateStatusMutation.mutate({
       id: reservation.id,
       status: "rejected",
+      userId: reservation.user_id,
+      deviceName: reservation.device?.name || "",
+      startDate: reservation.start_date,
+      endDate: reservation.end_date,
+    });
+  };
+
+  const handleCancel = (reservation: any) => {
+    updateStatusMutation.mutate({
+      id: reservation.id,
+      status: "cancelled",
       userId: reservation.user_id,
       deviceName: reservation.device?.name || "",
       startDate: reservation.start_date,
@@ -322,28 +344,41 @@ export function AdminReservations() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    {reservation.status === "pending" && (
-                      <div className="flex gap-2 justify-end">
+                    <div className="flex gap-2 justify-end">
+                      {reservation.status === "pending" && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                            onClick={() => handleApprove(reservation)}
+                          >
+                            <Check className="h-4 w-4 mr-1" />
+                            Aprovar
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleReject(reservation)}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Rejeitar
+                          </Button>
+                        </>
+                      )}
+                      {(reservation.status === "approved" || reservation.status === "pending") && (
                         <Button
                           variant="outline"
                           size="sm"
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                          onClick={() => handleApprove(reservation)}
+                          className="text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                          onClick={() => handleCancel(reservation)}
                         >
-                          <Check className="h-4 w-4 mr-1" />
-                          Aprovar
+                          <Ban className="h-4 w-4 mr-1" />
+                          Cancelar
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleReject(reservation)}
-                        >
-                          <X className="h-4 w-4 mr-1" />
-                          Rejeitar
-                        </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

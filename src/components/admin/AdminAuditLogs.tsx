@@ -4,6 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -19,28 +26,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, History } from "lucide-react";
-import { format } from "date-fns";
+import { Search, History, CalendarIcon, X } from "lucide-react";
+import { format, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { pt } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 const actionLabels: Record<string, string> = {
   reservation_approved: "Reserva Aprovada",
   reservation_rejected: "Reserva Rejeitada",
+  reservation_cancelled: "Reserva Cancelada",
   role_updated: "Role Alterado",
   issue_status_updated: "Estado de Avaria Atualizado",
   device_created: "Dispositivo Criado",
   device_updated: "Dispositivo Atualizado",
   device_deleted: "Dispositivo Eliminado",
+  device_unavailable: "Dispositivo Indisponível",
 };
 
 const actionColors: Record<string, string> = {
   reservation_approved: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
   reservation_rejected: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  reservation_cancelled: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   role_updated: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
   issue_status_updated: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   device_created: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200",
   device_updated: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
   device_deleted: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+  device_unavailable: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 };
 
 const entityLabels: Record<string, string> = {
@@ -69,6 +81,8 @@ export function AdminAuditLogs() {
   const [searchTerm, setSearchTerm] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("all");
   const [entityFilter, setEntityFilter] = useState<string>("all");
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   const { data: logs = [], isLoading } = useQuery({
     queryKey: ["admin-audit-logs"],
@@ -106,8 +120,28 @@ export function AdminAuditLogs() {
     const matchesAction = actionFilter === "all" || log.action === actionFilter;
     const matchesEntity = entityFilter === "all" || log.entity_type === entityFilter;
 
-    return matchesSearch && matchesAction && matchesEntity;
+    // Date range filter
+    const logDate = new Date(log.created_at);
+    let matchesDateRange = true;
+    
+    if (startDate && endDate) {
+      matchesDateRange = isWithinInterval(logDate, {
+        start: startOfDay(startDate),
+        end: endOfDay(endDate),
+      });
+    } else if (startDate) {
+      matchesDateRange = logDate >= startOfDay(startDate);
+    } else if (endDate) {
+      matchesDateRange = logDate <= endOfDay(endDate);
+    }
+
+    return matchesSearch && matchesAction && matchesEntity && matchesDateRange;
   });
+
+  const clearDateFilters = () => {
+    setStartDate(undefined);
+    setEndDate(undefined);
+  };
 
   const formatChange = (log: AuditLog): string => {
     if (log.action === "role_updated" && log.old_value && log.new_value) {
@@ -136,42 +170,102 @@ export function AdminAuditLogs() {
       </CardHeader>
       <CardContent>
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Pesquisar por utilizador ou descrição..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+        <div className="flex flex-col gap-4 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Pesquisar por utilizador ou descrição..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={actionFilter} onValueChange={setActionFilter}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Ação" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as ações</SelectItem>
+                {Object.entries(actionLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={entityFilter} onValueChange={setEntityFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Entidade" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as entidades</SelectItem>
+                {Object.entries(entityLabels).map(([value, label]) => (
+                  <SelectItem key={value} value={value}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <Select value={actionFilter} onValueChange={setActionFilter}>
-            <SelectTrigger className="w-full sm:w-[200px]">
-              <SelectValue placeholder="Ação" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as ações</SelectItem>
-              {Object.entries(actionLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={entityFilter} onValueChange={setEntityFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Entidade" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as entidades</SelectItem>
-              {Object.entries(entityLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          
+          {/* Date Range Filters */}
+          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+            <span className="text-sm font-medium text-muted-foreground">Período:</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full sm:w-[180px] justify-start text-left font-normal",
+                    !startDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {startDate ? format(startDate, "dd/MM/yyyy", { locale: pt }) : "Data início"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={startDate}
+                  onSelect={setStartDate}
+                  initialFocus
+                  locale={pt}
+                />
+              </PopoverContent>
+            </Popover>
+            <span className="hidden sm:inline text-muted-foreground">até</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full sm:w-[180px] justify-start text-left font-normal",
+                    !endDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {endDate ? format(endDate, "dd/MM/yyyy", { locale: pt }) : "Data fim"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={endDate}
+                  onSelect={setEndDate}
+                  initialFocus
+                  locale={pt}
+                />
+              </PopoverContent>
+            </Popover>
+            {(startDate || endDate) && (
+              <Button variant="ghost" size="sm" onClick={clearDateFilters}>
+                <X className="h-4 w-4 mr-1" />
+                Limpar datas
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-x-auto">

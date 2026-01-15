@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { 
   ChartContainer, 
   ChartTooltip, 
   ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
 } from "@/components/ui/chart";
 import { 
   BarChart, 
@@ -18,11 +17,12 @@ import {
   Cell,
   LineChart,
   Line,
-  ResponsiveContainer,
 } from "recharts";
-import { Monitor, Calendar, AlertTriangle, TrendingUp } from "lucide-react";
+import { Monitor, Calendar, AlertTriangle, TrendingUp, FileText } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { pt } from "date-fns/locale";
+import { toast } from "sonner";
+import { exportStatisticsToPDF } from "@/lib/pdfExport";
 
 const COLORS = [
   "hsl(var(--chart-1))",
@@ -206,8 +206,23 @@ export function AdminStatistics() {
     },
   });
 
+  const handleExportPDF = () => {
+    if (summary && deviceStats && categoryStats && commonIssues) {
+      exportStatisticsToPDF(summary, deviceStats, categoryStats, commonIssues);
+      toast.success("Relatório PDF exportado!");
+    }
+  };
+
   return (
     <div className="space-y-6">
+      {/* Header with Export */}
+      <div className="flex justify-end">
+        <Button onClick={handleExportPDF} variant="outline">
+          <FileText className="h-4 w-4 mr-2" />
+          Exportar PDF
+        </Button>
+      </div>
+      
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>

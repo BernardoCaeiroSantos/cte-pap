@@ -11,7 +11,7 @@ const corsHeaders = {
 };
 
 interface NotificationRequest {
-  type: "reservation_approved" | "reservation_rejected" | "issue_resolved";
+  type: "reservation_approved" | "reservation_rejected" | "reservation_cancelled" | "issue_resolved" | "device_unavailable";
   userId: string;
   details: {
     deviceName?: string;
@@ -79,6 +79,38 @@ const handler = async (req: Request): Promise<Response> => {
           </ul>
           ${details.reason ? `<p><strong>Motivo:</strong> ${details.reason}</p>` : ""}
           <p>Por favor, contacte a administração para mais informações.</p>
+          <p>Cumprimentos,<br>Equipa de Gestão de Equipamentos</p>
+        `;
+        break;
+
+      case "reservation_cancelled":
+        subject = "Reserva Cancelada - Sistema de Gestão de Equipamentos";
+        html = `
+          <h1>Olá ${profile.full_name}!</h1>
+          <p>Informamos que a sua reserva foi <strong style="color: orange;">cancelada</strong>.</p>
+          <h3>Detalhes da Reserva:</h3>
+          <ul>
+            <li><strong>Equipamento:</strong> ${details.deviceName}</li>
+            <li><strong>Data de início:</strong> ${details.startDate}</li>
+            <li><strong>Data de fim:</strong> ${details.endDate}</li>
+          </ul>
+          ${details.reason ? `<p><strong>Motivo:</strong> ${details.reason}</p>` : ""}
+          <p>Se tiver dúvidas, contacte a administração.</p>
+          <p>Cumprimentos,<br>Equipa de Gestão de Equipamentos</p>
+        `;
+        break;
+
+      case "device_unavailable":
+        subject = "Equipamento Indisponível - Sistema de Gestão de Equipamentos";
+        html = `
+          <h1>Olá ${profile.full_name}!</h1>
+          <p>Informamos que o equipamento que reservou ficou <strong style="color: red;">indisponível</strong>.</p>
+          <h3>Detalhes:</h3>
+          <ul>
+            <li><strong>Equipamento:</strong> ${details.deviceName}</li>
+          </ul>
+          ${details.reason ? `<p><strong>Motivo:</strong> ${details.reason}</p>` : ""}
+          <p>Por favor, efectue uma nova reserva ou contacte a administração para mais informações.</p>
           <p>Cumprimentos,<br>Equipa de Gestão de Equipamentos</p>
         `;
         break;
